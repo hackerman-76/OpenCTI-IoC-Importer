@@ -360,7 +360,7 @@
     <div>
       <div class="eyebrow">OpenCTI import utility</div>
       <h1>IoC → STIX Bundle Builder</h1>
-      <p class="subtitle">Turn indicators copied from a threat report into an OpenCTI-ready STIX 2.1 bundle, linked to existing malware and MITRE ATT&amp;CK techniques with “indicates” relationships.</p>
+      <p class="subtitle">Turn indicators copied from a threat report into an OpenCTI-ready STIX 2.1 bundle, linked to existing malware and/or MITRE ATT&amp;CK techniques with “indicates” relationships.</p>
       <span class="badge-local">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
         Runs entirely in your browser — nothing is sent anywhere
@@ -376,12 +376,12 @@
         <div class="step-num">1</div>
         <div>
           <div class="step-title">Targets</div>
-          <div class="step-desc">What these indicators should link to. Both must already exist in OpenCTI — this tool never creates or edits Malware or Attack Pattern objects, so nothing already there is touched.</div>
+          <div class="step-desc">What these indicators should link to — malware, attack pattern(s), or both. Provide at least one. Everything referenced here must already exist in OpenCTI — this tool never creates or edits Malware or Attack Pattern objects, so nothing already there is touched.</div>
         </div>
       </div>
       <div class="options-grid">
         <div class="field">
-          <label class="field-label" for="malwareId">Malware STIX ID</label>
+          <label class="field-label" for="malwareId">Malware STIX ID (optional)</label>
           <input type="text" id="malwareId" class="mono" placeholder="malware--3f2504e0-4f89-11d3-9a0c-0305e82c3301" autocomplete="off" spellcheck="false" />
           <span class="field-hint" id="malwareIdStatus"></span>
         </div>
@@ -971,7 +971,7 @@
 
       var descParts = [];
       if (opts.notes) descParts.push(opts.notes);
-      if (opts.malwareName) descParts.push('Associated with malware: ' + opts.malwareName + '.');
+      if (opts.malwareId && opts.malwareName) descParts.push('Associated with malware: ' + opts.malwareName + '.');
       if (descParts.length) indicator.description = descParts.join(' ');
 
       if (opts.sourceName || opts.sourceUrl) {
@@ -982,18 +982,20 @@
 
       objects.push(indicator);
 
-      var relationship = {
-        type: 'relationship',
-        spec_version: '2.1',
-        id: 'relationship--' + uuidv4(),
-        created: nowIso,
-        modified: nowIso,
-        relationship_type: 'indicates',
-        source_ref: indicatorId,
-        target_ref: opts.malwareId
-      };
-      if (opts.malwareName) relationship.description = indicator.name + ' indicates ' + opts.malwareName + '.';
-      objects.push(relationship);
+      if (opts.malwareId) {
+        var relationship = {
+          type: 'relationship',
+          spec_version: '2.1',
+          id: 'relationship--' + uuidv4(),
+          created: nowIso,
+          modified: nowIso,
+          relationship_type: 'indicates',
+          source_ref: indicatorId,
+          target_ref: opts.malwareId
+        };
+        if (opts.malwareName) relationship.description = indicator.name + ' indicates ' + opts.malwareName + '.';
+        objects.push(relationship);
+      }
 
       (opts.attackPatterns || []).forEach(function (ap) {
         objects.push({
@@ -1014,22 +1016,30 @@
   }
 
   generateBtn.addEventListener('click', function () {
-    var malwareId = malwareIdInput.value.trim();
-    if (!MALWARE_ID_RE.test(malwareId)) {
-      setStatus(generateStatus, 'Enter a valid Malware STIX ID in step 1 before generating.', 'bad');
+    var malwareIdRaw = malwareIdInput.value.trim();
+    var validMalwareId = malwareIdRaw !== '' && MALWARE_ID_RE.test(malwareIdRaw);
+    if (malwareIdRaw !== '' && !validMalwareId) {
+      setStatus(generateStatus, "The Malware STIX ID doesn't look right — fix it or clear the field.", 'bad');
       malwareIdInput.focus();
       return;
     }
+
+    var attackPatterns = parseAttackPatternLines(attackPatternIdsInput.value).valid;
+
+    if (!validMalwareId && attackPatterns.length === 0) {
+      setStatus(generateStatus, 'Enter a Malware STIX ID or at least one Attack Pattern STIX ID in step 1 before generating.', 'bad');
+      malwareIdInput.focus();
+      return;
+    }
+
     var usable = rows.filter(function (r) { return r.type !== 'unknown'; });
     if (usable.length === 0) {
       setStatus(generateStatus, 'No classified IoCs to include yet. Parse or add at least one recognized IoC.', 'bad');
       return;
     }
 
-    var attackPatterns = parseAttackPatternLines(attackPatternIdsInput.value).valid;
-
     var opts = {
-      malwareId: malwareId,
+      malwareId: validMalwareId ? malwareIdRaw : '',
       malwareName: malwareNameInput.value.trim(),
       attackPatterns: attackPatterns,
       indicatorType: indicatorTypeSelect.value,
@@ -1043,20 +1053,17 @@
     var bundle = buildBundle(usable, opts);
     lastBundleJson = JSON.stringify(bundle, null, 2);
 
-    var relCount = usable.length * (1 + attackPatterns.length);
+    var targetParts = [];
+    if (opts.malwareId) targetParts.push(opts.malwareId);
+    attackPatterns.forEach(function (ap) { targetParts.push(ap.label ? ap.label + ' (' + ap.id + ')' : ap.id); });
+    var relCount = usable.length * targetParts.length;
+
     setStatus(generateStatus, '', '');
     outputArea.hidden = false;
-    outputSummary.innerHTML = '';
-    var summaryText = document.createTextNode(
+    outputSummary.textContent =
       pluralize(usable.length, 'indicator', 'indicators') + ' + ' +
       pluralize(relCount, '"indicates" relationship', '"indicates" relationships') +
-      (attackPatterns.length ? ' (malware + ' + pluralize(attackPatterns.length, 'attack pattern', 'attack patterns') + ')' : '') +
-      ' → '
-    );
-    var b = document.createElement('b');
-    b.textContent = malwareId;
-    outputSummary.appendChild(summaryText);
-    outputSummary.appendChild(b);
+      ' → ' + targetParts.join(', ');
     outputConsole.innerHTML = highlightJSON(lastBundleJson);
     setStatus(copyStatus, '', '');
     outputArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
