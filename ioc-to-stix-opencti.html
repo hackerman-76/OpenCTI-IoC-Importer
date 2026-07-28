@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light dark" />
+<title>IoC → STIX Bundle Builder for OpenCTI</title>
+<style>
+  :root {
+    color-scheme: light dark;
+
+    --bg: #0f141b;
+    --surface: #1a212c;
+    --surface-raised: #212a37;
+    --line: rgba(255,255,255,0.10);
+    --text: #edf1f4;
+    --text-dim: #9aa7b8;
+    --text-faint: #7d8ba0;
+    --accent: #4fc3b6;
+    --accent-strong: #7fd8cd;
+    --on-accent: #06231f;
+    --good: #5fbf7e;
+    --warn: #e0a648;
+    --bad: #e6706a;
+    --type-ip: #8aa4ea;
+    --console-bg: #0a0e13;
+    --console-text: #d7e6e3;
+
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, "Roboto Mono", monospace;
+
+    --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px; --sp-6: 32px; --sp-7: 48px;
+    --radius: 10px; --radius-sm: 7px; --radius-pill: 999px;
+
+    --fs-xs: 0.75rem; --fs-sm: 0.8125rem; --fs-base: 0.9375rem; --fs-md: 1.0625rem; --fs-lg: 1.375rem; --fs-xl: 1.75rem;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f3f5f7;
+      --surface: #ffffff;
+      --surface-raised: #f7f9fa;
+      --line: rgba(16,22,30,0.12);
+      --text: #161c24;
+      --text-dim: #4a5563;
+      --text-faint: #707c8d;
+      --accent: #1c8377;
+      --accent-strong: #146b60;
+      --on-accent: #ffffff;
+      --good: #2f8f52;
+      --warn: #a8701e;
+      --bad: #c2453d;
+      --type-ip: #3457a6;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0f141b; --surface: #1a212c; --surface-raised: #212a37;
+    --line: rgba(255,255,255,0.10);
+    --text: #edf1f4; --text-dim: #9aa7b8; --text-faint: #7d8ba0;
+    --accent: #4fc3b6; --accent-strong: #7fd8cd; --on-accent: #06231f;
+    --good: #5fbf7e; --warn: #e0a648; --bad: #e6706a; --type-ip: #8aa4ea;
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #f3f5f7; --surface: #ffffff; --surface-raised: #f7f9fa;
+    --line: rgba(16,22,30,0.12);
+    --text: #161c24; --text-dim: #4a5563; --text-faint: #707c8d;
+    --accent: #1c8377; --accent-strong: #146b60; --on-accent: #ffffff;
+    --good: #2f8f52; --warn: #a8701e; --bad: #c2453d; --type-ip: #3457a6;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    line-height: 1.55;
+  }
+  h1, h2, h3, p { margin: 0; }
+  ::selection { background: color-mix(in srgb, var(--accent) 35%, transparent); }
+
+  .page {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: var(--sp-6) var(--sp-4) var(--sp-7);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-6);
+  }
+
+  header.top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: var(--sp-4);
+  }
+  .eyebrow {
+    font-size: var(--fs-xs);
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--accent-strong);
+    font-weight: 700;
+  }
+  h1 { font-size: var(--fs-xl); margin: 4px 0 8px; text-wrap: balance; }
+  .subtitle { color: var(--text-dim); max-width: 62ch; }
+  .badge-local {
+    margin-top: var(--sp-3);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--fs-xs);
+    color: var(--text-faint);
+    border: 1px solid var(--line);
+    padding: 5px 10px;
+    border-radius: var(--radius-pill);
+  }
+  .theme-toggle {
+    flex: none;
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--text-dim);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+  }
+  .theme-toggle:hover { color: var(--text); }
+  .theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .steps { display: flex; flex-direction: column; gap: var(--sp-5); }
+
+  .step {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: var(--sp-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-4);
+  }
+  .step-head { display: flex; align-items: flex-start; gap: var(--sp-3); }
+  .step-num {
+    flex: none;
+    width: 28px; height: 28px;
+    margin-top: 2px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--accent) 20%, transparent);
+    color: var(--accent-strong);
+    font-family: var(--font-mono);
+    font-size: var(--fs-sm);
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .step-title { font-size: var(--fs-lg); font-weight: 600; text-wrap: balance; }
+  .step-desc { color: var(--text-dim); font-size: var(--fs-base); margin-top: 3px; }
+
+  .options-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: var(--sp-4);
+  }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field.span-2 { grid-column: 1 / -1; }
+  .field-label {
+    font-size: var(--fs-xs);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--text-faint);
+    font-weight: 600;
+  }
+  input[type="text"], input[type="url"], input[type="datetime-local"], textarea, select {
+    font: inherit;
+    font-size: var(--fs-base);
+    color: var(--text);
+    background: var(--surface-raised);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    padding: 9px 11px;
+    width: 100%;
+  }
+  select {
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    padding-right: 30px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23888888' stroke-width='2'%3E%3Cpath d='M5 8l5 5 5-5'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 12px;
+  }
+  input:focus-visible, textarea:focus-visible, select:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  textarea { resize: vertical; }
+  .mono { font-family: var(--font-mono) !important; }
+  .field-hint { font-size: var(--fs-xs); color: var(--text-faint); }
+  .field-hint.good { color: var(--good); }
+  .field-hint.bad { color: var(--bad); }
+  code.mono {
+    font-family: var(--font-mono);
+    background: var(--surface-raised);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: .9em;
+  }
+
+  .checkbox-field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: var(--fs-sm);
+    color: var(--text-dim);
+    cursor: pointer;
+  }
+
+  .actions-row { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+
+  .btn {
+    font: inherit;
+    font-weight: 600;
+    font-size: var(--fs-sm);
+    border-radius: var(--radius-sm);
+    padding: 9px 16px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: filter .12s ease, background-color .12s ease;
+  }
+  .btn-primary { background: var(--accent); color: var(--on-accent); }
+  .btn-primary:hover { filter: brightness(1.08); }
+  .btn-ghost { background: transparent; border-color: var(--line); color: var(--text); }
+  .btn-ghost:hover { background: var(--surface-raised); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .status-line { font-size: var(--fs-sm); color: var(--text-dim); }
+  .status-line.good { color: var(--good); }
+  .status-line.bad { color: var(--bad); }
+  .status-line.warn { color: var(--warn); }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    padding: 4px 10px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--line);
+  }
+
+  .pill-neutral { background: var(--surface-raised); color: var(--text-dim); }
+  .pill-accent { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent-strong); }
+  .pill-ip { background: color-mix(in srgb, var(--type-ip) 16%, transparent); color: var(--type-ip); }
+  .pill-warn { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); }
+  table.ioc-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+  .ioc-table th {
+    text-align: left;
+    font-size: var(--fs-xs);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--text-faint);
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface-raised);
+  }
+  .ioc-table td { padding: 8px 14px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  .ioc-table tr:last-child td { border-bottom: none; }
+  .cell-value { font-family: var(--font-mono); white-space: nowrap; }
+  .cell-value input {
+    font-family: var(--font-mono);
+    font-size: var(--fs-sm);
+    color: var(--text);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    padding: 3px 6px;
+    width: 100%;
+    min-width: 300px;
+  }
+  .cell-value input:hover { border-color: var(--line); }
+  .cell-value input:focus-visible { border-color: var(--accent); outline: none; background: var(--surface-raised); }
+  .cell-remove { width: 1%; }
+  .cell-type select {
+    font-family: var(--font-sans);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    border: none;
+    border-radius: var(--radius-pill);
+    padding: 5px 26px 5px 12px;
+  }
+  .icon-btn {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-faint);
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .icon-btn:hover { background: color-mix(in srgb, var(--bad) 14%, transparent); color: var(--bad); }
+  .icon-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .empty-state { color: var(--text-faint); font-size: var(--fs-sm); font-style: italic; }
+
+  .add-row-form { display: flex; gap: var(--sp-2); align-items: center; }
+  .add-row-form input { flex: 1; }
+  .add-row-form select { width: auto; min-width: 140px; }
+
+  details.help { font-size: var(--fs-sm); color: var(--text-dim); border-top: 1px solid var(--line); padding-top: var(--sp-3); }
+  details.help summary { cursor: pointer; color: var(--accent-strong); font-weight: 600; list-style: none; }
+  details.help summary::-webkit-details-marker { display: none; }
+  details.help summary::before { content: '+ '; }
+  details.help[open] summary::before { content: '– '; }
+  details.help p { margin: var(--sp-2) 0 0; }
+
+  .console-wrap { overflow-x: auto; border-radius: var(--radius); background: var(--console-bg); }
+  .console {
+    margin: 0;
+    padding: var(--sp-4);
+    font-family: var(--font-mono);
+    font-size: var(--fs-sm);
+    line-height: 1.6;
+    color: var(--console-text);
+    white-space: pre;
+  }
+  .jk { color: #7fd8cd; }
+  .js { color: #e3c78a; }
+  .jn { color: #8fb4e8; }
+  .jb { color: #e0a648; }
+  .jz { color: #7a889c; }
+
+  .output-summary { font-size: var(--fs-sm); color: var(--text-dim); }
+  .output-summary b { color: var(--text); font-family: var(--font-mono); }
+
+  footer.foot {
+    display: flex;
+    justify-content: center;
+    padding-top: var(--sp-4);
+    border-top: 1px solid var(--line);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; scroll-behavior: auto !important; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="top">
+    <div>
+      <div class="eyebrow">OpenCTI import utility</div>
+      <h1>IoC → STIX Bundle Builder</h1>
+      <p class="subtitle">Turn indicators copied from a threat report into an OpenCTI-ready STIX 2.1 bundle, linked to existing malware and MITRE ATT&amp;CK techniques with “indicates” relationships.</p>
+      <span class="badge-local">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+        Runs entirely in your browser — nothing is sent anywhere
+      </span>
+    </div>
+    <button type="button" class="theme-toggle" id="themeToggle" aria-label="Switch theme"></button>
+  </header>
+
+  <div class="steps">
+
+    <section class="step">
+      <div class="step-head">
+        <div class="step-num">1</div>
+        <div>
+          <div class="step-title">Targets</div>
+          <div class="step-desc">What these indicators should link to. Both must already exist in OpenCTI — this tool never creates or edits Malware or Attack Pattern objects, so nothing already there is touched.</div>
+        </div>
+      </div>
+      <div class="options-grid">
+        <div class="field">
+          <label class="field-label" for="malwareId">Malware STIX ID</label>
+          <input type="text" id="malwareId" class="mono" placeholder="malware--3f2504e0-4f89-11d3-9a0c-0305e82c3301" autocomplete="off" spellcheck="false" />
+          <span class="field-hint" id="malwareIdStatus"></span>
+        </div>
+        <div class="field">
+          <label class="field-label" for="malwareName">Malware name (optional)</label>
+          <input type="text" id="malwareName" placeholder="e.g. AsyncRAT" autocomplete="off" />
+          <span class="field-hint">Used only in labels here and in the relationship description — never written to a Malware object.</span>
+        </div>
+        <div class="field span-2">
+          <label class="field-label" for="attackPatternIds">Attack pattern STIX IDs (optional)</label>
+          <textarea id="attackPatternIds" class="mono" rows="2" placeholder="attack-pattern--ba90251b-9a39-5617-953a-427cf01d9d8b  T1071 Application Layer Protocol"></textarea>
+          <span class="field-hint">One per line, optionally followed by a label. Every generated indicator gets an additional “indicates” relationship to each technique listed here.</span>
+          <span class="field-hint" id="attackPatternStatus"></span>
+        </div>
+      </div>
+      <details class="help">
+        <summary>Where do I find these STIX IDs?</summary>
+        <p>Open the entity in OpenCTI, use its STIX2/JSON export (or the GraphQL API), and copy the <code class="mono">id</code> field. Malware IDs start with <code class="mono">malware--</code>; MITRE ATT&amp;CK technique (attack pattern) IDs start with <code class="mono">attack-pattern--</code>. Using existing IDs instead of names means the relationships below attach to what you already have in OpenCTI, without creating or editing those objects.</p>
+      </details>
+    </section>
+
+    <section class="step">
+      <div class="step-head">
+        <div class="step-num">2</div>
+        <div>
+          <div class="step-title">Paste indicators</div>
+          <div class="step-desc">Paste raw text from a report. Mixed hashes, domains and IPs are fine — one per line or separated by commas/spaces.</div>
+        </div>
+      </div>
+      <textarea id="pasteArea" class="mono" rows="8" placeholder="d41d8cd98f00b204e9800998ecf8427e&#10;hxxp://evil-c2[.]example/panel&#10;185.220.101[.]45&#10;malicious-domain.net"></textarea>
+      <div class="actions-row">
+        <button type="button" class="btn btn-primary" id="parseBtn">Parse IoCs</button>
+        <label class="checkbox-field">
+          <input type="checkbox" id="refangToggle" checked />
+          Auto-refang defanged values
+        </label>
+        <span class="status-line" id="parseStatus"></span>
+      </div>
+    </section>
+
+    <section class="step">
+      <div class="step-head">
+        <div class="step-num">3</div>
+        <div>
+          <div class="step-title">Review &amp; classify</div>
+          <div class="step-desc">Confirm the detected type for each value. Anything left unclassified is skipped when the bundle is generated.</div>
+        </div>
+      </div>
+      <div class="chips" id="summaryChips"></div>
+      <div class="table-wrap" id="tableWrap" hidden>
+        <table class="ioc-table">
+          <thead><tr><th>Value</th><th>Type</th><th></th></tr></thead>
+          <tbody id="iocTableBody"></tbody>
+        </table>
+      </div>
+      <p class="empty-state" id="emptyState">Parsed IoCs will appear here for review.</p>
+      <div class="add-row-form">
+        <input type="text" id="addValueInput" class="mono" placeholder="Add a single IoC manually" autocomplete="off" spellcheck="false" />
+        <select id="addTypeSelect">
+          <option value="auto">Auto-detect</option>
+          <option value="md5">MD5</option>
+          <option value="sha1">SHA-1</option>
+          <option value="sha256">SHA-256</option>
+          <option value="sha512">SHA-512</option>
+          <option value="domain">Domain</option>
+          <option value="ipv4">IPv4</option>
+          <option value="ipv6">IPv6</option>
+        </select>
+        <button type="button" class="btn btn-ghost" id="addRowBtn">Add</button>
+      </div>
+    </section>
+
+    <section class="step">
+      <div class="step-head">
+        <div class="step-num">4</div>
+        <div>
+          <div class="step-title">Indicator options</div>
+          <div class="step-desc">Applied to every indicator generated in this batch.</div>
+        </div>
+      </div>
+      <div class="options-grid">
+        <div class="field">
+          <label class="field-label" for="indicatorType">Indicator type</label>
+          <select id="indicatorType">
+            <option value="malicious-activity" selected>Malicious activity</option>
+            <option value="compromised">Compromised</option>
+            <option value="anomalous-activity">Anomalous activity</option>
+            <option value="attribution">Attribution</option>
+            <option value="anonymization">Anonymization</option>
+            <option value="benign">Benign</option>
+            <option value="unknown">Unknown</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="field-label" for="validFrom">Valid from</label>
+          <input type="datetime-local" id="validFrom" />
+          <span class="field-hint">Defaults to now — set this to when the report says activity began, if known.</span>
+        </div>
+        <div class="field">
+          <label class="field-label" for="sourceName">Report title (optional)</label>
+          <input type="text" id="sourceName" placeholder="e.g. Vendor XYZ – AsyncRAT campaign" />
+        </div>
+        <div class="field">
+          <label class="field-label" for="sourceUrl">Report URL (optional)</label>
+          <input type="url" id="sourceUrl" class="mono" placeholder="https://" />
+        </div>
+        <div class="field span-2">
+          <label class="field-label" for="notes">Additional notes (optional)</label>
+          <textarea id="notes" rows="2" placeholder="Appended to every indicator's description"></textarea>
+        </div>
+        <div class="field span-2">
+          <label class="checkbox-field">
+            <input type="checkbox" id="createObservables" checked />
+            Let OpenCTI auto-create the linked observable for each indicator
+          </label>
+          <span class="field-hint">Sets <code class="mono">x_opencti_create_observables</code> on each indicator. Uncheck if your workflow creates observables separately.</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="step">
+      <div class="step-head">
+        <div class="step-num">5</div>
+        <div>
+          <div class="step-title">Generate bundle</div>
+          <div class="step-desc">Builds STIX 2.1 Indicator objects and “indicates” Relationship objects pointed at the targets from step 1.</div>
+        </div>
+      </div>
+      <div class="actions-row">
+        <button type="button" class="btn btn-primary" id="generateBtn">Generate STIX bundle</button>
+        <span class="status-line" id="generateStatus"></span>
+      </div>
+      <div id="outputArea" hidden>
+        <div class="output-summary" id="outputSummary"></div>
+        <div class="console-wrap">
+          <pre class="console" id="outputConsole"></pre>
+        </div>
+        <div class="actions-row">
+          <button type="button" class="btn btn-ghost" id="copyBtn">Copy JSON</button>
+          <button type="button" class="btn btn-ghost" id="downloadBtn">Download .json</button>
+          <span class="status-line" id="copyStatus"></span>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <footer class="foot">
+    <button type="button" class="btn btn-ghost" id="clearAllBtn">Clear all</button>
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var ICON_SUN = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><line x1="12" y1="2" x2="12" y2="4"></line><line x1="12" y1="20" x2="12" y2="22"></line><line x1="4.9" y1="4.9" x2="6.3" y2="6.3"></line><line x1="17.7" y1="17.7" x2="19.1" y2="19.1"></line><line x1="2" y1="12" x2="4" y2="12"></line><line x1="20" y1="12" x2="22" y2="12"></line><line x1="4.9" y1="19.1" x2="6.3" y2="17.7"></line><line x1="17.7" y1="6.3" x2="19.1" y2="4.9"></line></svg>';
+  var ICON_MOON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5Z"></path></svg>';
+
+  var root = document.documentElement;
+  var themeToggleBtn = document.getElementById('themeToggle');
+  var storedTheme = localStorage.getItem('ioc-tool-theme');
+  if (storedTheme === 'dark' || storedTheme === 'light') root.setAttribute('data-theme', storedTheme);
+
+  function currentTheme() {
+    var attr = root.getAttribute('data-theme');
+    if (attr) return attr;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  function updateThemeIcon() {
+    var t = currentTheme();
+    themeToggleBtn.innerHTML = t === 'dark' ? ICON_SUN : ICON_MOON;
+    themeToggleBtn.setAttribute('aria-label', t === 'dark' ? 'Switch to light theme' : 'Switch to dark theme');
+  }
+  themeToggleBtn.addEventListener('click', function () {
+    var next = currentTheme() === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem('ioc-tool-theme', next);
+    updateThemeIcon();
+  });
+  updateThemeIcon();
+
+  function refang(str) {
+    var s = str;
+    s = s.replace(/\[\.\]|\(\.\)|\{\.\}|\[dot\]|\(dot\)/gi, '.');
+    s = s.replace(/\[at\]|\(at\)/gi, '@');
+    s = s.replace(/hxxps/gi, 'https');
+    s = s.replace(/hxxp/gi, 'http');
+    s = s.replace(/\[:\]/g, ':');
+    s = s.replace(/\[\/\/\]/g, '//');
+    return s;
+  }
+
+  function isIPv4(v) {
+    var parts = v.split('.');
+    if (parts.length !== 4) return false;
+    return parts.every(function (p) { return /^\d{1,3}$/.test(p) && Number(p) <= 255; });
+  }
+
+  function isIPv6(v) {
+    if (v.indexOf(':') === -1) return false;
+    var re = /^(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|::(ffff(:0{1,4})?:)?((25[0-5]|(2[0-4]|1?[0-9])?[0-9])\.){3}(25[0-5]|(2[0-4]|1?[0-9])?[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1?[0-9])?[0-9])\.){3}(25[0-5]|(2[0-4]|1?[0-9])?[0-9]))$/;
+    return re.test(v);
+  }
+
+  function isDomain(v) {
+    if (isIPv4(v) || isIPv6(v)) return false;
+    if (v.length > 253) return false;
+    var re = /^(?!-)[A-Za-z0-9-]{1,63}(?<!-)(\.(?!-)[A-Za-z0-9-]{1,63}(?<!-))*\.[A-Za-z]{2,63}$/;
+    return re.test(v);
+  }
+
+  function classify(v) {
+    if (!v) return 'unknown';
+    if (/^[a-fA-F0-9]+$/.test(v)) {
+      if (v.length === 32) return 'md5';
+      if (v.length === 40) return 'sha1';
+      if (v.length === 64) return 'sha256';
+      if (v.length === 128) return 'sha512';
+    }
+    if (isIPv4(v)) return 'ipv4';
+    if (isIPv6(v)) return 'ipv6';
+    if (isDomain(v)) return 'domain';
+    return 'unknown';
+  }
+
+  function extractHostIfUrl(t) {
+    if (/^https?:\/\//i.test(t)) {
+      try { return new URL(t).hostname; } catch (e) { return t; }
+    }
+    return t;
+  }
+
+  function stripPort(t) {
+    var m = t.match(/^(.*):(\d{1,5})$/);
+    if (m && isIPv4(m[1])) return m[1];
+    return t;
+  }
+
+  function tokenizeInput(raw, doRefang) {
+    return raw
+      .split(/[\s,;|]+/)
+      .map(function (t) { return t.trim(); })
+      .filter(Boolean)
+      .filter(function (t) { return !/^\d+[.)]$/.test(t) && !/^[-*•]+$/.test(t); })
+      .map(function (t) { return t.replace(/^(md5|sha-?1|sha-?256|sha-?512)\s*[:=]\s*/i, ''); })
+      .filter(Boolean)
+      .map(function (t) { return doRefang ? refang(t) : t; })
+      .map(extractHostIfUrl)
+      .map(stripPort)
+      .map(function (t) { return t.replace(/^[\[("'`<]+/, '').replace(/[\])"'`>,.;]+$/, ''); })
+      .map(function (t) { return t.trim(); })
+      .filter(Boolean);
+  }
+
+  function normalizeValue(value, type) {
+    if (type === 'domain' || type === 'ipv6' || type === 'md5' || type === 'sha1' || type === 'sha256' || type === 'sha512') {
+      return value.toLowerCase();
+    }
+    return value;
+  }
+
+  function uuidv4() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    var bytes = crypto.getRandomValues(new Uint8Array(16));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    var hex = Array.prototype.map.call(bytes, function (b) { return b.toString(16).padStart(2, '0'); });
+    return hex.slice(0, 4).join('') + '-' + hex.slice(4, 6).join('') + '-' + hex.slice(6, 8).join('') + '-' + hex.slice(8, 10).join('') + '-' + hex.slice(10, 16).join('');
+  }
+
+  function escapeStixString(s) {
+    return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  }
+
+  function buildPattern(type, value) {
+    var v = escapeStixString(value);
+    switch (type) {
+      case 'md5': return "[file:hashes.'MD5' = '" + v + "']";
+      case 'sha1': return "[file:hashes.'SHA-1' = '" + v + "']";
+      case 'sha256': return "[file:hashes.'SHA-256' = '" + v + "']";
+      case 'sha512': return "[file:hashes.'SHA-512' = '" + v + "']";
+      case 'domain': return "[domain-name:value = '" + v + "']";
+      case 'ipv4': return "[ipv4-addr:value = '" + v + "']";
+      case 'ipv6': return "[ipv6-addr:value = '" + v + "']";
+      default: return null;
+    }
+  }
+
+  function mainObservableType(type) {
+    switch (type) {
+      case 'md5': case 'sha1': case 'sha256': case 'sha512': return 'StixFile';
+      case 'domain': return 'Domain-Name';
+      case 'ipv4': return 'IPv4-Addr';
+      case 'ipv6': return 'IPv6-Addr';
+      default: return undefined;
+    }
+  }
+
+  var TYPE_OPTIONS = [
+    { value: 'md5', label: 'MD5' },
+    { value: 'sha1', label: 'SHA-1' },
+    { value: 'sha256', label: 'SHA-256' },
+    { value: 'sha512', label: 'SHA-512' },
+    { value: 'domain', label: 'Domain' },
+    { value: 'ipv4', label: 'IPv4' },
+    { value: 'ipv6', label: 'IPv6' },
+    { value: 'unknown', label: '— Unclassified —' }
+  ];
+  function typeLabel(type) {
+    var found = TYPE_OPTIONS.filter(function (o) { return o.value === type; })[0];
+    return found ? found.label : type;
+  }
+  function pillClassFor(type) {
+    if (type === 'unknown') return 'warn';
+    if (type === 'domain') return 'accent';
+    if (type === 'ipv4' || type === 'ipv6') return 'ip';
+    return 'neutral';
+  }
+  function pluralize(n, singular, plural) {
+    return n + ' ' + (n === 1 ? singular : (plural || singular + 's'));
+  }
+
+  var rows = [];
+  var rowSeq = 0;
+
+  var pasteArea = document.getElementById('pasteArea');
+  var refangToggle = document.getElementById('refangToggle');
+  var parseBtn = document.getElementById('parseBtn');
+  var parseStatus = document.getElementById('parseStatus');
+  var tableWrap = document.getElementById('tableWrap');
+  var tableBody = document.getElementById('iocTableBody');
+  var emptyState = document.getElementById('emptyState');
+  var summaryChips = document.getElementById('summaryChips');
+  var addValueInput = document.getElementById('addValueInput');
+  var addTypeSelect = document.getElementById('addTypeSelect');
+  var addRowBtn = document.getElementById('addRowBtn');
+  var malwareIdInput = document.getElementById('malwareId');
+  var malwareIdStatus = document.getElementById('malwareIdStatus');
+  var malwareNameInput = document.getElementById('malwareName');
+  var attackPatternIdsInput = document.getElementById('attackPatternIds');
+  var attackPatternStatus = document.getElementById('attackPatternStatus');
+  var indicatorTypeSelect = document.getElementById('indicatorType');
+  var validFromInput = document.getElementById('validFrom');
+  var createObservablesCheckbox = document.getElementById('createObservables');
+  var sourceNameInput = document.getElementById('sourceName');
+  var sourceUrlInput = document.getElementById('sourceUrl');
+  var notesInput = document.getElementById('notes');
+  var generateBtn = document.getElementById('generateBtn');
+  var generateStatus = document.getElementById('generateStatus');
+  var outputArea = document.getElementById('outputArea');
+  var outputSummary = document.getElementById('outputSummary');
+  var outputConsole = document.getElementById('outputConsole');
+  var copyBtn = document.getElementById('copyBtn');
+  var copyStatus = document.getElementById('copyStatus');
+  var downloadBtn = document.getElementById('downloadBtn');
+  var clearAllBtn = document.getElementById('clearAllBtn');
+
+  var lastBundleJson = '';
+
+  function setStatus(el, msg, kind) {
+    el.textContent = msg || '';
+    el.className = 'status-line' + (kind ? ' ' + kind : '');
+  }
+
+  function renderTable() {
+    tableBody.textContent = '';
+    var has = rows.length > 0;
+    tableWrap.hidden = !has;
+    emptyState.hidden = has;
+    summaryChips.textContent = '';
+
+    var counts = { hash: 0, domain: 0, ip: 0, unknown: 0 };
+
+    rows.forEach(function (row) {
+      var tr = document.createElement('tr');
+      tr.dataset.rowId = String(row.id);
+
+      var tdValue = document.createElement('td');
+      tdValue.className = 'cell-value';
+      var valueInput = document.createElement('input');
+      valueInput.type = 'text';
+      valueInput.className = 'mono';
+      valueInput.value = row.value;
+      valueInput.dataset.role = 'value-input';
+      valueInput.spellcheck = false;
+      valueInput.setAttribute('autocomplete', 'off');
+      valueInput.setAttribute('aria-label', 'IoC value');
+      tdValue.appendChild(valueInput);
+      tr.appendChild(tdValue);
+
+      var tdType = document.createElement('td');
+      tdType.className = 'cell-type';
+      var select = document.createElement('select');
+      select.dataset.role = 'type-select';
+      select.className = 'pill-' + pillClassFor(row.type);
+      TYPE_OPTIONS.forEach(function (opt) {
+        var o = document.createElement('option');
+        o.value = opt.value;
+        o.textContent = opt.label;
+        if (opt.value === row.type) o.selected = true;
+        select.appendChild(o);
+      });
+      tdType.appendChild(select);
+      tr.appendChild(tdType);
+
+      var tdRemove = document.createElement('td');
+      tdRemove.className = 'cell-remove';
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'icon-btn';
+      btn.dataset.role = 'remove-row';
+      btn.setAttribute('aria-label', 'Remove ' + row.value);
+      btn.textContent = '×';
+      tdRemove.appendChild(btn);
+      tr.appendChild(tdRemove);
+
+      tableBody.appendChild(tr);
+
+      if (row.type === 'unknown') counts.unknown++;
+      else if (row.type === 'domain') counts.domain++;
+      else if (row.type === 'ipv4' || row.type === 'ipv6') counts.ip++;
+      else counts.hash++;
+    });
+
+    if (has) {
+      [
+        { n: counts.hash, cls: 'neutral', text: pluralize(counts.hash, 'hash', 'hashes') },
+        { n: counts.domain, cls: 'accent', text: pluralize(counts.domain, 'domain', 'domains') },
+        { n: counts.ip, cls: 'ip', text: pluralize(counts.ip, 'IP', 'IPs') },
+        { n: counts.unknown, cls: 'warn', text: pluralize(counts.unknown, 'unclassified', 'unclassified') }
+      ].forEach(function (c) {
+        var chip = document.createElement('span');
+        chip.className = 'chip pill-' + c.cls;
+        chip.textContent = c.text;
+        summaryChips.appendChild(chip);
+      });
+    }
+  }
+
+  function addRows(items) {
+    var added = 0, duplicates = 0, unknown = 0;
+    var existingValues = {};
+    rows.forEach(function (r) { existingValues[r.value.toLowerCase()] = true; });
+    items.forEach(function (item) {
+      if (!item.value) return;
+      var key = item.value.toLowerCase();
+      if (existingValues[key]) { duplicates++; return; }
+      existingValues[key] = true;
+      rows.push({ id: ++rowSeq, value: item.value, type: item.type });
+      added++;
+      if (item.type === 'unknown') unknown++;
+    });
+    return { added: added, duplicates: duplicates, unknown: unknown };
+  }
+
+  parseBtn.addEventListener('click', function () {
+    var raw = pasteArea.value;
+    if (!raw.trim()) { setStatus(parseStatus, 'Paste some text first.', 'warn'); return; }
+    var tokens = tokenizeInput(raw, refangToggle.checked);
+    if (!tokens.length) { setStatus(parseStatus, 'No values found in that text.', 'warn'); return; }
+    var classified = tokens.map(function (t) {
+      var type = classify(t);
+      return { value: normalizeValue(t, type), type: type };
+    });
+    var result = addRows(classified);
+    var msg = pluralize(result.added, 'IoC added', 'IoCs added');
+    if (result.duplicates) msg += ' · ' + result.duplicates + ' duplicate' + (result.duplicates === 1 ? '' : 's') + ' skipped';
+    if (result.unknown) msg += ' · ' + result.unknown + ' unclassified — review below';
+    setStatus(parseStatus, msg, result.added ? 'good' : 'warn');
+    renderTable();
+  });
+
+  addRowBtn.addEventListener('click', function () {
+    var raw = addValueInput.value.trim();
+    if (!raw) return;
+    var v = refangToggle.checked ? refang(raw) : raw;
+    v = stripPort(extractHostIfUrl(v));
+    var chosenType = addTypeSelect.value === 'auto' ? classify(v) : addTypeSelect.value;
+    addRows([{ value: normalizeValue(v, chosenType), type: chosenType }]);
+    addValueInput.value = '';
+    renderTable();
+  });
+  addValueInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); addRowBtn.click(); }
+  });
+
+  tableBody.addEventListener('change', function (e) {
+    var target = e.target;
+    if (target.matches && target.matches('select[data-role="type-select"]')) {
+      var id = target.closest('tr').dataset.rowId;
+      var row = rows.filter(function (r) { return String(r.id) === id; })[0];
+      if (row) row.type = target.value;
+      renderTable();
+    } else if (target.matches && target.matches('input[data-role="value-input"]')) {
+      var id2 = target.closest('tr').dataset.rowId;
+      var row2 = rows.filter(function (r) { return String(r.id) === id2; })[0];
+      if (row2) row2.value = target.value.trim();
+      renderTable();
+    }
+  });
+  tableBody.addEventListener('click', function (e) {
+    var btn = e.target.closest('button[data-role="remove-row"]');
+    if (btn) {
+      var id = btn.closest('tr').dataset.rowId;
+      rows = rows.filter(function (r) { return String(r.id) !== id; });
+      renderTable();
+    }
+  });
+
+  var MALWARE_ID_RE = /^malware--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  malwareIdInput.addEventListener('input', function () {
+    var v = malwareIdInput.value.trim();
+    if (!v) { setStatus(malwareIdStatus, '', ''); return; }
+    if (MALWARE_ID_RE.test(v)) {
+      setStatus(malwareIdStatus, '✓ Valid STIX ID format', 'good');
+    } else {
+      setStatus(malwareIdStatus, '✗ Expected format: malware--<uuid>', 'bad');
+    }
+  });
+
+  var ATTACK_PATTERN_LINE_RE = /^(attack-pattern--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\s*(.*)$/i;
+  function parseAttackPatternLines(raw) {
+    var seen = {};
+    var valid = [];
+    var invalidCount = 0;
+    raw.split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean).forEach(function (line) {
+      var m = line.match(ATTACK_PATTERN_LINE_RE);
+      if (!m) { invalidCount++; return; }
+      var id = m[1].toLowerCase();
+      if (seen[id]) return;
+      seen[id] = true;
+      valid.push({ id: id, label: m[2].trim() });
+    });
+    return { valid: valid, invalidCount: invalidCount };
+  }
+  attackPatternIdsInput.addEventListener('input', function () {
+    var raw = attackPatternIdsInput.value;
+    if (!raw.trim()) { setStatus(attackPatternStatus, '', ''); return; }
+    var parsed = parseAttackPatternLines(raw);
+    var msg = parsed.valid.length ? ('✓ ' + pluralize(parsed.valid.length, 'technique', 'techniques') + ' recognized') : '';
+    if (parsed.invalidCount) {
+      msg += (msg ? ' · ' : '✗ ') + parsed.invalidCount + ' line' + (parsed.invalidCount === 1 ? '' : 's') + ' not a valid attack-pattern ID (ignored)';
+    }
+    setStatus(attackPatternStatus, msg, parsed.invalidCount ? (parsed.valid.length ? 'warn' : 'bad') : 'good');
+  });
+
+  function highlightJSON(json) {
+    var escaped = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return escaped.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\btrue\b|\bfalse\b|\bnull\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g, function (match) {
+      var cls = 'jn';
+      if (/^"/.test(match)) {
+        cls = /:$/.test(match) ? 'jk' : 'js';
+      } else if (match === 'true' || match === 'false') {
+        cls = 'jb';
+      } else if (match === 'null') {
+        cls = 'jz';
+      }
+      return '<span class="' + cls + '">' + match + '</span>';
+    });
+  }
+
+  function buildBundle(usableRows, opts) {
+    var nowIso = new Date().toISOString();
+    var validFromIso = opts.validFrom ? new Date(opts.validFrom).toISOString() : nowIso;
+    var objects = [];
+
+    usableRows.forEach(function (row) {
+      var indicatorId = 'indicator--' + uuidv4();
+      var indicator = {
+        type: 'indicator',
+        spec_version: '2.1',
+        id: indicatorId,
+        created: nowIso,
+        modified: nowIso,
+        name: typeLabel(row.type) + ': ' + row.value,
+        indicator_types: [opts.indicatorType],
+        pattern: buildPattern(row.type, row.value),
+        pattern_type: 'stix',
+        pattern_version: '2.1',
+        valid_from: validFromIso
+      };
+      var mot = mainObservableType(row.type);
+      if (mot) indicator.x_opencti_main_observable_type = mot;
+      if (opts.createObservables) indicator.x_opencti_create_observables = true;
+
+      var descParts = [];
+      if (opts.notes) descParts.push(opts.notes);
+      if (opts.malwareName) descParts.push('Associated with malware: ' + opts.malwareName + '.');
+      if (descParts.length) indicator.description = descParts.join(' ');
+
+      if (opts.sourceName || opts.sourceUrl) {
+        var ref = { source_name: opts.sourceName || 'Source report' };
+        if (opts.sourceUrl) ref.url = opts.sourceUrl;
+        indicator.external_references = [ref];
+      }
+
+      objects.push(indicator);
+
+      var relationship = {
+        type: 'relationship',
+        spec_version: '2.1',
+        id: 'relationship--' + uuidv4(),
+        created: nowIso,
+        modified: nowIso,
+        relationship_type: 'indicates',
+        source_ref: indicatorId,
+        target_ref: opts.malwareId
+      };
+      if (opts.malwareName) relationship.description = indicator.name + ' indicates ' + opts.malwareName + '.';
+      objects.push(relationship);
+
+      (opts.attackPatterns || []).forEach(function (ap) {
+        objects.push({
+          type: 'relationship',
+          spec_version: '2.1',
+          id: 'relationship--' + uuidv4(),
+          created: nowIso,
+          modified: nowIso,
+          relationship_type: 'indicates',
+          source_ref: indicatorId,
+          target_ref: ap.id,
+          description: indicator.name + ' indicates ' + (ap.label || ap.id) + '.'
+        });
+      });
+    });
+
+    return { type: 'bundle', id: 'bundle--' + uuidv4(), objects: objects };
+  }
+
+  generateBtn.addEventListener('click', function () {
+    var malwareId = malwareIdInput.value.trim();
+    if (!MALWARE_ID_RE.test(malwareId)) {
+      setStatus(generateStatus, 'Enter a valid Malware STIX ID in step 1 before generating.', 'bad');
+      malwareIdInput.focus();
+      return;
+    }
+    var usable = rows.filter(function (r) { return r.type !== 'unknown'; });
+    if (usable.length === 0) {
+      setStatus(generateStatus, 'No classified IoCs to include yet. Parse or add at least one recognized IoC.', 'bad');
+      return;
+    }
+
+    var attackPatterns = parseAttackPatternLines(attackPatternIdsInput.value).valid;
+
+    var opts = {
+      malwareId: malwareId,
+      malwareName: malwareNameInput.value.trim(),
+      attackPatterns: attackPatterns,
+      indicatorType: indicatorTypeSelect.value,
+      validFrom: validFromInput.value,
+      createObservables: createObservablesCheckbox.checked,
+      sourceName: sourceNameInput.value.trim(),
+      sourceUrl: sourceUrlInput.value.trim(),
+      notes: notesInput.value.trim()
+    };
+
+    var bundle = buildBundle(usable, opts);
+    lastBundleJson = JSON.stringify(bundle, null, 2);
+
+    var relCount = usable.length * (1 + attackPatterns.length);
+    setStatus(generateStatus, '', '');
+    outputArea.hidden = false;
+    outputSummary.innerHTML = '';
+    var summaryText = document.createTextNode(
+      pluralize(usable.length, 'indicator', 'indicators') + ' + ' +
+      pluralize(relCount, '"indicates" relationship', '"indicates" relationships') +
+      (attackPatterns.length ? ' (malware + ' + pluralize(attackPatterns.length, 'attack pattern', 'attack patterns') + ')' : '') +
+      ' → '
+    );
+    var b = document.createElement('b');
+    b.textContent = malwareId;
+    outputSummary.appendChild(summaryText);
+    outputSummary.appendChild(b);
+    outputConsole.innerHTML = highlightJSON(lastBundleJson);
+    setStatus(copyStatus, '', '');
+    outputArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
+  copyBtn.addEventListener('click', function () {
+    function flash() { setStatus(copyStatus, 'Copied to clipboard.', 'good'); }
+    function fail() { setStatus(copyStatus, 'Copy failed — select and copy the JSON manually.', 'bad'); }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(lastBundleJson).then(flash, function () {
+        try {
+          var ta = document.createElement('textarea');
+          ta.value = lastBundleJson;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+          flash();
+        } catch (err) { fail(); }
+      });
+    } else {
+      try {
+        var ta2 = document.createElement('textarea');
+        ta2.value = lastBundleJson;
+        ta2.style.position = 'fixed';
+        ta2.style.opacity = '0';
+        document.body.appendChild(ta2);
+        ta2.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta2);
+        flash();
+      } catch (err) { fail(); }
+    }
+  });
+
+  downloadBtn.addEventListener('click', function () {
+    var blob = new Blob([lastBundleJson], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    var stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    a.href = url;
+    a.download = 'stix-bundle-' + stamp + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  clearAllBtn.addEventListener('click', function () {
+    rows = [];
+    pasteArea.value = '';
+    renderTable();
+    outputArea.hidden = true;
+    lastBundleJson = '';
+    setStatus(parseStatus, '', '');
+    setStatus(generateStatus, '', '');
+    setStatus(copyStatus, '', '');
+  });
+
+  (function initValidFrom() {
+    var now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    validFromInput.value = now.toISOString().slice(0, 16);
+  })();
+
+  renderTable();
+})();
+</script>
+</body>
+</html>
